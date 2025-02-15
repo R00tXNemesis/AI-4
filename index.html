@@ -31,11 +31,11 @@
         .dot {
             width: 12px;
             height: 12px;
-            background: red;
+            background: blue;
             border-radius: 50%;
             position: absolute;
-            transition: transform 0.3s linear;
-            animation: blink 0.5s infinite alternate; /* Animasi berkedip */
+            transition: transform 0.5s linear;
+            animation: blink 1s infinite alternate;
         }
 
         @keyframes blink {
@@ -94,13 +94,15 @@
 
         function getCurrentLocation(callback) {
             if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(position => {
+                navigator.geolocation.getCurrentPosition(position => {
                     userLat = position.coords.latitude;
                     userLon = position.coords.longitude;
                     callback();
-                }, () => alert("Gagal mendapatkan lokasi"), {
+                }, error => {
+                    alert("Gagal mendapatkan lokasi: " + error.message);
+                }, {
                     enableHighAccuracy: true,
-                    timeout: 2000,
+                    timeout: 5000,
                     maximumAge: 0
                 });
             } else {
@@ -146,7 +148,7 @@
                     const centerY = radius;
 
                     const distance = getDistance(userLat, userLon, targetLat, targetLon);
-                    const maxDistance = 5;
+                    const maxDistance = 10;
 
                     const angle = Math.atan2(targetLat - userLat, targetLon - userLon);
 
