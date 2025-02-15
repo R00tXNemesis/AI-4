@@ -31,9 +31,12 @@
         .dot {
             width: 12px;
             height: 12px;
-            background: blue;
+            background: orange;
             border-radius: 50%;
             position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
             transition: transform 0.5s linear;
             animation: blink 1s infinite alternate;
         }
@@ -69,12 +72,10 @@
         <button id="updateLocation">Perbarui Lokasi</button>
     </div>
 
-    <!-- Firebase SDK -->
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // Konfigurasi Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyBYiUzhEfbzL7AT9veMW51vqXbdIvDoMtg",
             authDomain: "geolocation-61384.firebaseapp.com",
@@ -86,7 +87,6 @@
             databaseURL: "https://geolocation-61384-default-rtdb.asia-southeast1.firebasedatabase.app/"
         };
 
-        // Inisialisasi Firebase
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
 
@@ -153,10 +153,10 @@
                     const angle = Math.atan2(targetLat - userLat, targetLon - userLon);
 
                     const scaleFactor = Math.min(1, distance / maxDistance);
-                    const x = centerX + Math.cos(angle) * radius * scaleFactor;
-                    const y = centerY - Math.sin(angle) * radius * scaleFactor;
+                    const x = centerX + Math.cos(angle) * (radius * scaleFactor);
+                    const y = centerY - Math.sin(angle) * (radius * scaleFactor);
 
-                    dot.style.transform = `translate(${x - 6}px, ${y - 6}px)`;
+                    dot.style.transform = `translate(${x - radius}px, ${y - radius}px)`;
                 }
             });
         }
