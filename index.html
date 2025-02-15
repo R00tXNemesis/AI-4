@@ -31,7 +31,7 @@
         .dot {
             width: 12px;
             height: 12px;
-            background: orange;
+            background: red; /* Titik diubah menjadi merah */
             border-radius: 50%;
             position: absolute;
             top: 50%;
@@ -148,7 +148,7 @@
                     const centerY = radius;
 
                     const distance = getDistance(userLat, userLon, targetLat, targetLon);
-                    const maxDistance = 10;
+                    const maxDistance = 100;
 
                     const angle = Math.atan2(targetLat - userLat, targetLon - userLon);
 
