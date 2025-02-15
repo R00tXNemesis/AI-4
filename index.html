@@ -31,7 +31,7 @@
         .dot {
             width: 12px;
             height: 12px;
-            background: pink; /* Titik diubah menjadi pink */
+            background: yellow; /* Titik diubah menjadi kuning */
             border-radius: 50%;
             position: absolute;
             top: 50%;
@@ -56,9 +56,11 @@
     </div>
 
     <script type="module">
+        // Import Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
+        // Konfigurasi Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyBYiUzhEfbzL7AT9veMW51vqXbdIvDoMtg",
             authDomain: "geolocation-61384.firebaseapp.com",
@@ -70,14 +72,18 @@
             databaseURL: "https://geolocation-61384-default-rtdb.asia-southeast1.firebasedatabase.app/"
         };
 
+        // Inisialisasi Firebase
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
 
+        // Fungsi untuk memperbarui lokasi user ke Firebase
         function updateMyLocation() {
             if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(position => {
+                navigator.geolocation.getCurrentPosition(position => {
                     const userLat = position.coords.latitude;
                     const userLon = position.coords.longitude;
+
+                    console.log("Mengirim lokasi ke Firebase:", userLat, userLon);
 
                     set(ref(database, 'location/user'), {
                         latitude: userLat,
@@ -96,6 +102,10 @@
             }
         }
 
+        // Jalankan update lokasi setiap 5 detik agar tetap real-time
+        setInterval(updateMyLocation, 5000);
+
+        // Fungsi untuk memperbarui radar berdasarkan data dari Firebase
         function updateRadar() {
             onValue(ref(database, 'location/user'), (snapshot) => {
                 const data = snapshot.val();
@@ -127,8 +137,9 @@
             });
         }
 
-        updateMyLocation();
+        // Mulai pembaruan radar
         updateRadar();
+
     </script>
 </body>
 </html>
