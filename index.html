@@ -84,73 +84,85 @@
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
 
-        // Fungsi untuk memperbarui lokasi ke Firebase
-        function updateLocation() {
+        let userLat = 0, userLon = 0; // Lokasi HP yang membuka radar
+
+        // Fungsi untuk mendapatkan lokasi HP yang membuka radar
+        function getCurrentLocation(callback) {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(position => {
-                    const lat = position.coords.latitude;
-                    const lon = position.coords.longitude;
-
-                    // Simpan lokasi ke Firebase
-                    set(ref(database, 'location/'), {
-                        latitude: lat,
-                        longitude: lon
-                    });
-
-                    console.log(`Lokasi diperbarui! (${lat}, ${lon})`);
-                });
+                    userLat = position.coords.latitude;
+                    userLon = position.coords.longitude;
+                    callback();
+                }, () => alert("Gagal mendapatkan lokasi"));
             } else {
                 alert("Geolokasi tidak didukung di browser ini.");
             }
         }
 
-        // Fungsi untuk menghitung jarak antara dua koordinat
-        function hitungJarak(lat1, lon1, lat2, lon2) {
-            const R = 6371; // Radius bumi dalam km
-            const dLat = (lat2 - lat1) * (Math.PI / 180);
-            const dLon = (lon2 - lon1) * (Math.PI / 180);
-            const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-                      Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
-                      Math.sin(dLon / 2) * Math.sin(dLon / 2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-            return R * c; // Hasil dalam km
+        // Fungsi untuk menyimpan lokasi HP user ke Firebase
+        function updateLocation() {
+            getCurrentLocation(() => {
+                set(ref(database, 'location/'), {
+                    latitude: userLat,
+                    longitude: userLon
+                });
+            });
         }
 
-        // Fungsi untuk membaca lokasi dari Firebase dan menampilkan di radar
-        onValue(ref(database, 'location/'), (snapshot) => {
-            const data = snapshot.val();
-            if (data) {
-                console.log("Lokasi terbaru:", data);
+        // Fungsi menghitung jarak menggunakan Haversine Formula
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Jari-jari bumi dalam meter
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
 
-                navigator.geolocation.getCurrentPosition(position => {
-                    const myLat = position.coords.latitude;
-                    const myLon = position.coords.longitude;
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 
-                    const jarak = hitungJarak(myLat, myLon, data.latitude, data.longitude);
-                    console.log("Jarak ke HP user:", jarak, "km");
+            return R * c; // Jarak dalam meter
+        }
+
+        // Fungsi untuk memperbarui radar
+        function updateRadar() {
+            onValue(ref(database, 'location/'), (snapshot) => {
+                const data = snapshot.val();
+                if (data) {
+                    const targetLat = data.latitude;
+                    const targetLon = data.longitude;
 
                     const dot = document.getElementById("userDot");
                     const radarSize = 300; // Diameter radar
                     const radius = radarSize / 2; // Jari-jari radar
+                    const centerX = radius;
+                    const centerY = radius;
 
-                    // Konversi jarak ke skala radar (maks 5 km)
-                    const maxJarak = 5; // 5 km batas radar
-                    const scaledJarak = Math.min(jarak / maxJarak, 1) * radius * 0.8;
+                    // Hitung jarak antara HP radar (adikmu) dan HP user (kamu)
+                    const distance = getDistance(userLat, userLon, targetLat, targetLon);
+                    const maxDistance = 500; // Maksimal jarak dalam meter agar tetap dalam radar
 
-                    // Arah dari HP adik ke HP user (gunakan sudut acak untuk simulasi)
-                    const angle = Math.random() * Math.PI * 2;
-                    const x = radius + Math.cos(angle) * scaledJarak;
-                    const y = radius - Math.sin(angle) * scaledJarak;
+                    // Hitung sudut antara dua titik
+                    const angle = Math.atan2(targetLat - userLat, targetLon - userLon);
+
+                    // Normalisasi jarak agar tetap dalam batas radar
+                    const scaleFactor = Math.min(1, distance / maxDistance);
+                    const x = centerX + Math.cos(angle) * radius * scaleFactor;
+                    const y = centerY - Math.sin(angle) * radius * scaleFactor;
 
                     // Update posisi titik merah dengan transform agar smooth
                     dot.style.transform = `translate(${x - 6}px, ${y - 6}px)`;
-                });
-            } else {
-                console.warn("Tidak ada data lokasi di Firebase.");
-            }
+                }
+            });
+        }
+
+        // Jalankan radar setelah mendapatkan lokasi HP radar
+        getCurrentLocation(() => {
+            updateRadar();
         });
 
-        // Perbarui lokasi secara otomatis setiap 10 detik
+        // Perbarui lokasi HP user ke Firebase setiap 10 detik
         setInterval(updateLocation, 10000);
 
         // Event Listener untuk tombol perbarui lokasi
