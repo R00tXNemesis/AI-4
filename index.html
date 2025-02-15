@@ -84,29 +84,32 @@
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
 
-        let userLat = 0, userLon = 0; // Lokasi HP yang membuka radar
+        let userLat = 0, userLon = 0; // Lokasi HP radar (adikmu)
 
-        // Fungsi untuk mendapatkan lokasi HP yang membuka radar
-        function getCurrentLocation(callback) {
+        // Fungsi untuk melacak lokasi HP radar secara real-time
+        function trackUserLocation() {
             if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(position => {
+                navigator.geolocation.watchPosition(position => {
                     userLat = position.coords.latitude;
                     userLon = position.coords.longitude;
-                    callback();
-                }, () => alert("Gagal mendapatkan lokasi"));
-            } else {
-                alert("Geolokasi tidak didukung di browser ini.");
+                    updateRadar(); // Panggil updateRadar() setiap kali lokasi berubah
+                }, () => alert("Gagal mendapatkan lokasi"), { enableHighAccuracy: true });
             }
         }
 
         // Fungsi untuk menyimpan lokasi HP user ke Firebase
         function updateLocation() {
-            getCurrentLocation(() => {
-                set(ref(database, 'location/'), {
-                    latitude: userLat,
-                    longitude: userLon
-                });
-            });
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(position => {
+                    const lat = position.coords.latitude;
+                    const lon = position.coords.longitude;
+
+                    set(ref(database, 'location/'), {
+                        latitude: lat,
+                        longitude: lon
+                    });
+                }, () => alert("Gagal mendapatkan lokasi"));
+            }
         }
 
         // Fungsi menghitung jarak menggunakan Haversine Formula
@@ -134,33 +137,33 @@
                     const targetLon = data.longitude;
 
                     const dot = document.getElementById("userDot");
-                    const radarSize = 300; // Diameter radar
-                    const radius = radarSize / 2; // Jari-jari radar
+                    const radarSize = 300;
+                    const radius = radarSize / 2;
                     const centerX = radius;
                     const centerY = radius;
 
-                    // Hitung jarak antara HP radar (adikmu) dan HP user (kamu)
-                    const distance = getDistance(userLat, userLon, targetLat, targetLon);
-                    const maxDistance = 500; // Maksimal jarak dalam meter agar tetap dalam radar
+                    // Konversi lat/lon ke koordinat X,Y dalam meter
+                    const latDiff = (targetLat - userLat) * 111320; // 1 derajat lat ~ 111.32 km
+                    const lonDiff = (targetLon - userLon) * 111320 * Math.cos(userLat * Math.PI / 180);
 
-                    // Hitung sudut antara dua titik
-                    const angle = Math.atan2(targetLat - userLat, targetLon - userLon);
+                    // Hitung jarak dalam meter
+                    const distance = Math.sqrt(latDiff * latDiff + lonDiff * lonDiff);
+                    const maxDistance = 500;
 
-                    // Normalisasi jarak agar tetap dalam batas radar
+                    // Hitung sudut dan skala jarak
+                    const angle = Math.atan2(latDiff, lonDiff);
                     const scaleFactor = Math.min(1, distance / maxDistance);
                     const x = centerX + Math.cos(angle) * radius * scaleFactor;
                     const y = centerY - Math.sin(angle) * radius * scaleFactor;
 
-                    // Update posisi titik merah dengan transform agar smooth
+                    // Perbarui posisi titik
                     dot.style.transform = `translate(${x - 6}px, ${y - 6}px)`;
                 }
             });
         }
 
-        // Jalankan radar setelah mendapatkan lokasi HP radar
-        getCurrentLocation(() => {
-            updateRadar();
-        });
+        // Jalankan radar saat halaman pertama kali dimuat
+        trackUserLocation();
 
         // Perbarui lokasi HP user ke Firebase setiap 10 detik
         setInterval(updateLocation, 10000);
