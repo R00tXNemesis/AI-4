@@ -31,7 +31,7 @@
         .dot {
             width: 12px;
             height: 12px;
-            background: red; /* Titik diubah menjadi merah */
+            background: purple; /* Titik diubah menjadi ungu */
             border-radius: 50%;
             position: absolute;
             top: 50%;
@@ -90,16 +90,20 @@
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
 
-        let userLat = 0, userLon = 0;
-
         function getCurrentLocation(callback) {
             if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(position => {
-                    userLat = position.coords.latitude;
-                    userLon = position.coords.longitude;
-                    callback();
+                navigator.geolocation.watchPosition(position => {
+                    const userLat = position.coords.latitude;
+                    const userLon = position.coords.longitude;
+
+                    set(ref(database, 'location/user'), {
+                        latitude: userLat,
+                        longitude: userLon
+                    });
+
+                    callback(userLat, userLon);
                 }, error => {
-                    alert("Gagal mendapatkan lokasi: " + error.message);
+                    console.error("Gagal mendapatkan lokasi: " + error.message);
                 }, {
                     enableHighAccuracy: true,
                     timeout: 5000,
@@ -108,15 +112,6 @@
             } else {
                 alert("Geolokasi tidak didukung di browser ini.");
             }
-        }
-
-        function updateLocation() {
-            getCurrentLocation(() => {
-                set(ref(database, 'location/'), {
-                    latitude: userLat,
-                    longitude: userLon
-                });
-            });
         }
 
         function getDistance(lat1, lon1, lat2, lon2) {
@@ -134,8 +129,8 @@
             return R * c;
         }
 
-        function updateRadar() {
-            onValue(ref(database, 'location/'), (snapshot) => {
+        function updateRadar(userLat, userLon) {
+            onValue(ref(database, 'location/user'), (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
                     const targetLat = data.latitude;
@@ -161,13 +156,16 @@
             });
         }
 
-        getCurrentLocation(() => {
-            updateRadar();
+        getCurrentLocation((lat, lon) => {
+            updateRadar(lat, lon);
         });
 
-        setInterval(updateLocation, 1000);
+        document.getElementById("updateLocation").addEventListener("click", () => {
+            getCurrentLocation((lat, lon) => {
+                updateRadar(lat, lon);
+            });
+        });
 
-        document.getElementById("updateLocation").addEventListener("click", updateLocation);
     </script>
 </body>
 </html>
