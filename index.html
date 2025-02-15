@@ -56,11 +56,9 @@
     </div>
 
     <script type="module">
-        // Import Firebase
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
-        // Konfigurasi Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyBYiUzhEfbzL7AT9veMW51vqXbdIvDoMtg",
             authDomain: "geolocation-61384.firebaseapp.com",
@@ -72,18 +70,15 @@
             databaseURL: "https://geolocation-61384-default-rtdb.asia-southeast1.firebasedatabase.app/"
         };
 
-        // Inisialisasi Firebase
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
 
-        // Fungsi untuk memperbarui lokasi user ke Firebase
+        /*** 1. FUNGSI UNTUK MENGIRIM LOKASI HP KE FIREBASE ***/
         function updateMyLocation() {
             if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(position => {
+                navigator.geolocation.watchPosition(position => {
                     const userLat = position.coords.latitude;
                     const userLon = position.coords.longitude;
-
-                    console.log("Mengirim lokasi ke Firebase:", userLat, userLon);
 
                     set(ref(database, 'location/user'), {
                         latitude: userLat,
@@ -102,10 +97,7 @@
             }
         }
 
-        // Jalankan update lokasi setiap 5 detik agar tetap real-time
-        setInterval(updateMyLocation, 5000);
-
-        // Fungsi untuk memperbarui radar berdasarkan data dari Firebase
+        /*** 2. FUNGSI UNTUK MEMPERBARUI TITIK DI RADAR BERDASARKAN FIREBASE ***/
         function updateRadar() {
             onValue(ref(database, 'location/user'), (snapshot) => {
                 const data = snapshot.val();
@@ -137,8 +129,9 @@
             });
         }
 
-        // Mulai pembaruan radar
-        updateRadar();
+        /*** 3. MEMULAI UPDATE LOKASI & RADAR ***/
+        updateMyLocation();  // Kirim lokasi HP ke Firebase setiap saat
+        updateRadar();       // Update titik radar berdasarkan lokasi HP dari Firebase
 
     </script>
 </body>
