@@ -31,7 +31,7 @@
         .dot {
             width: 12px;
             height: 12px;
-            background: purple; /* Titik diubah menjadi ungu */
+            background: pink; /* Titik diubah menjadi pink */
             border-radius: 50%;
             position: absolute;
             top: 50%;
@@ -45,22 +45,6 @@
             0% { opacity: 1; }
             100% { opacity: 0.3; }
         }
-
-        button {
-            background: lime;
-            color: black;
-            border: none;
-            padding: 10px 20px;
-            font-size: 16px;
-            cursor: pointer;
-            border-radius: 5px;
-            margin-top: 20px;
-        }
-
-        button:hover {
-            background: darkgreen;
-            color: white;
-        }
     </style>
 </head>
 <body>
@@ -69,7 +53,6 @@
         <div class="radar">
             <div class="dot" id="userDot"></div>
         </div>
-        <button id="updateLocation">Perbarui Lokasi</button>
     </div>
 
     <script type="module">
@@ -90,7 +73,7 @@
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
 
-        function getCurrentLocation(callback) {
+        function updateMyLocation() {
             if (navigator.geolocation) {
                 navigator.geolocation.watchPosition(position => {
                     const userLat = position.coords.latitude;
@@ -101,7 +84,6 @@
                         longitude: userLon
                     });
 
-                    callback(userLat, userLon);
                 }, error => {
                     console.error("Gagal mendapatkan lokasi: " + error.message);
                 }, {
@@ -114,58 +96,39 @@
             }
         }
 
-        function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3;
-            const φ1 = lat1 * Math.PI / 180;
-            const φ2 = lat2 * Math.PI / 180;
-            const Δφ = (lat2 - lat1) * Math.PI / 180;
-            const Δλ = (lon2 - lon1) * Math.PI / 180;
-
-            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                      Math.cos(φ1) * Math.cos(φ2) *
-                      Math.sin(Δλ/2) * Math.sin(Δλ/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-
-            return R * c;
-        }
-
-        function updateRadar(userLat, userLon) {
+        function updateRadar() {
             onValue(ref(database, 'location/user'), (snapshot) => {
                 const data = snapshot.val();
                 if (data) {
                     const targetLat = data.latitude;
                     const targetLon = data.longitude;
 
-                    const dot = document.getElementById("userDot");
-                    const radarSize = 300;
-                    const radius = radarSize / 2;
-                    const centerX = radius;
-                    const centerY = radius;
+                    navigator.geolocation.getCurrentPosition(position => {
+                        const userLat = position.coords.latitude;
+                        const userLon = position.coords.longitude;
 
-                    const distance = getDistance(userLat, userLon, targetLat, targetLon);
-                    const maxDistance = 100;
+                        const dot = document.getElementById("userDot");
+                        const radarSize = 300;
+                        const radius = radarSize / 2;
+                        const centerX = radius;
+                        const centerY = radius;
 
-                    const angle = Math.atan2(targetLat - userLat, targetLon - userLon);
+                        const angle = Math.atan2(targetLat - userLat, targetLon - userLon);
+                        const distance = Math.sqrt((targetLat - userLat) ** 2 + (targetLon - userLon) ** 2) * 100000;
+                        const maxDistance = 5000;
 
-                    const scaleFactor = Math.min(1, distance / maxDistance);
-                    const x = centerX + Math.cos(angle) * (radius * scaleFactor);
-                    const y = centerY - Math.sin(angle) * (radius * scaleFactor);
+                        const scaleFactor = Math.min(1, distance / maxDistance);
+                        const x = centerX + Math.cos(angle) * (radius * scaleFactor);
+                        const y = centerY - Math.sin(angle) * (radius * scaleFactor);
 
-                    dot.style.transform = `translate(${x - radius}px, ${y - radius}px)`;
+                        dot.style.transform = `translate(${x - radius}px, ${y - radius}px)`;
+                    });
                 }
             });
         }
 
-        getCurrentLocation((lat, lon) => {
-            updateRadar(lat, lon);
-        });
-
-        document.getElementById("updateLocation").addEventListener("click", () => {
-            getCurrentLocation((lat, lon) => {
-                updateRadar(lat, lon);
-            });
-        });
-
+        updateMyLocation();
+        updateRadar();
     </script>
 </body>
 </html>
