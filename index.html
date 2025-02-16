@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Radar Lokasi</title>
+    <title>Radar Lokasi Real-Time</title>
     <style>
         body {
             font-family: Arial, sans-serif;
@@ -15,29 +15,30 @@
         }
 
         .container {
-            margin-top: 50px;
+            margin-top: 20px;
         }
 
         .radar {
             width: 300px;
             height: 300px;
-            background: radial-gradient(circle, rgba(0,255,0,0.3) 30%, transparent 70%);
+            background: radial-gradient(circle, rgba(255,255,0,0.3) 30%, transparent 70%);
             border-radius: 50%;
             position: relative;
-            margin: 20px auto;
-            border: 2px solid lime;
+            margin: 10px auto;
+            border: 2px solid yellow;
         }
 
         .dot {
             width: 12px;
             height: 12px;
-            background: red;
+            background: yellow;
             border-radius: 50%;
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             transition: transform 0.1s linear;
+            box-shadow: 0 0 10px yellow;
             animation: blink 1s infinite alternate;
         }
 
@@ -45,13 +46,23 @@
             0% { opacity: 1; }
             100% { opacity: 0.5; }
         }
+
+        .info {
+            margin-top: 10px;
+            font-size: 16px;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Radar Lokasi</h1>
+        <h1>Radar Lokasi Real-Time</h1>
         <div class="radar">
             <div class="dot" id="userDot"></div>
+        </div>
+        <div class="info">
+            <p>Latitude: <span id="latitude">-</span></p>
+            <p>Longitude: <span id="longitude">-</span></p>
+            <p>Jarak ke HP Adik: <span id="distance">-</span> meter</p>
         </div>
     </div>
 
@@ -59,6 +70,7 @@
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
         import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
 
+        // Konfigurasi Firebase
         const firebaseConfig = {
             apiKey: "AIzaSyBYiUzhEfbzL7AT9veMW51vqXbdIvDoMtg",
             authDomain: "geolocation-61384.firebaseapp.com",
@@ -73,7 +85,6 @@
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
 
-        /*** 1. UPDATE LOKASI HP KE FIREBASE DENGAN AKURASI TINGGI ***/
         function updateMyLocation() {
             if (navigator.geolocation) {
                 navigator.geolocation.watchPosition(position => {
@@ -82,15 +93,16 @@
 
                     set(ref(database, 'location/user'), {
                         latitude: userLat,
-                        longitude: userLon,
-                        timestamp: Date.now()
+                        longitude: userLon
                     });
 
+                    document.getElementById("latitude").innerText = userLat.toFixed(6);
+                    document.getElementById("longitude").innerText = userLon.toFixed(6);
                 }, error => {
                     console.error("Gagal mendapatkan lokasi: " + error.message);
                 }, {
                     enableHighAccuracy: true,
-                    timeout: 2000, 
+                    timeout: 5000,
                     maximumAge: 0
                 });
             } else {
@@ -98,7 +110,21 @@
             }
         }
 
-        /*** 2. UPDATE RADAR SECARA REAL-TIME, SANGAT AKURAT ***/
+        function getDistance(lat1, lon1, lat2, lon2) {
+            const R = 6371e3; // Radius Bumi dalam meter
+            const φ1 = lat1 * Math.PI / 180;
+            const φ2 = lat2 * Math.PI / 180;
+            const Δφ = (lat2 - lat1) * Math.PI / 180;
+            const Δλ = (lon2 - lon1) * Math.PI / 180;
+
+            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
+                      Math.cos(φ1) * Math.cos(φ2) *
+                      Math.sin(Δλ/2) * Math.sin(Δλ/2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+
+            return R * c;
+        }
+
         function updateRadar() {
             onValue(ref(database, 'location/user'), (snapshot) => {
                 const data = snapshot.val();
@@ -117,8 +143,10 @@
                         const centerY = radius;
 
                         const angle = Math.atan2(targetLat - userLat, targetLon - userLon);
-                        const distance = Math.sqrt((targetLat - userLat) ** 2 + (targetLon - userLon) ** 2) * 100000;
-                        const maxDistance = 500; // Ketelitian tinggi: setiap 0.5m pergerakan terdeteksi
+                        const distance = getDistance(userLat, userLon, targetLat, targetLon);
+                        const maxDistance = 500; // Maksimum jarak agar tetap dalam radar
+
+                        document.getElementById("distance").innerText = distance.toFixed(2);
 
                         const scaleFactor = Math.min(1, distance / maxDistance);
                         const x = centerX + Math.cos(angle) * (radius * scaleFactor);
@@ -130,10 +158,8 @@
             });
         }
 
-        /*** 3. JALANKAN PEMANTAUAN LOKASI ***/
         updateMyLocation();
         updateRadar();
-
     </script>
 </body>
 </html>
