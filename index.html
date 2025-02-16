@@ -31,19 +31,19 @@
         .dot {
             width: 12px;
             height: 12px;
-            background: yellow; /* Titik diubah menjadi kuning */
+            background: red;
             border-radius: 50%;
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            transition: transform 0.5s linear;
+            transition: transform 0.1s linear;
             animation: blink 1s infinite alternate;
         }
 
         @keyframes blink {
             0% { opacity: 1; }
-            100% { opacity: 0.3; }
+            100% { opacity: 0.5; }
         }
     </style>
 </head>
@@ -73,7 +73,7 @@
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
 
-        /*** 1. FUNGSI UNTUK MENGIRIM LOKASI HP KE FIREBASE ***/
+        /*** 1. UPDATE LOKASI HP KE FIREBASE DENGAN AKURASI TINGGI ***/
         function updateMyLocation() {
             if (navigator.geolocation) {
                 navigator.geolocation.watchPosition(position => {
@@ -82,14 +82,15 @@
 
                     set(ref(database, 'location/user'), {
                         latitude: userLat,
-                        longitude: userLon
+                        longitude: userLon,
+                        timestamp: Date.now()
                     });
 
                 }, error => {
                     console.error("Gagal mendapatkan lokasi: " + error.message);
                 }, {
                     enableHighAccuracy: true,
-                    timeout: 5000,
+                    timeout: 2000, 
                     maximumAge: 0
                 });
             } else {
@@ -97,7 +98,7 @@
             }
         }
 
-        /*** 2. FUNGSI UNTUK MEMPERBARUI TITIK DI RADAR BERDASARKAN FIREBASE ***/
+        /*** 2. UPDATE RADAR SECARA REAL-TIME, SANGAT AKURAT ***/
         function updateRadar() {
             onValue(ref(database, 'location/user'), (snapshot) => {
                 const data = snapshot.val();
@@ -117,7 +118,7 @@
 
                         const angle = Math.atan2(targetLat - userLat, targetLon - userLon);
                         const distance = Math.sqrt((targetLat - userLat) ** 2 + (targetLon - userLon) ** 2) * 100000;
-                        const maxDistance = 5000;
+                        const maxDistance = 500; // Ketelitian tinggi: setiap 0.5m pergerakan terdeteksi
 
                         const scaleFactor = Math.min(1, distance / maxDistance);
                         const x = centerX + Math.cos(angle) * (radius * scaleFactor);
@@ -129,9 +130,9 @@
             });
         }
 
-        /*** 3. MEMULAI UPDATE LOKASI & RADAR ***/
-        updateMyLocation();  // Kirim lokasi HP ke Firebase setiap saat
-        updateRadar();       // Update titik radar berdasarkan lokasi HP dari Firebase
+        /*** 3. JALANKAN PEMANTAUAN LOKASI ***/
+        updateMyLocation();
+        updateRadar();
 
     </script>
 </body>
