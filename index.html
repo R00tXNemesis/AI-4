@@ -37,7 +37,7 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            transition: transform 0.1s linear;
+            transition: transform 0.2s linear;
             box-shadow: 0 0 10px red;
             animation: blink 1s infinite alternate;
         }
@@ -85,21 +85,28 @@
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
 
+        let lastLat = null, lastLon = null;
+
         function updateMyLocation() {
             if (navigator.geolocation) {
                 navigator.geolocation.watchPosition(position => {
                     const userLat = position.coords.latitude;
                     const userLon = position.coords.longitude;
-                    const accuracy = position.coords.accuracy; // Tingkat akurasi dalam meter
+                    const accuracy = position.coords.accuracy;
 
-                    if (accuracy < 20) { // Hanya update jika akurasi bagus (<20m)
-                        set(ref(database, 'location/user'), {
-                            latitude: userLat,
-                            longitude: userLon
-                        });
+                    if (accuracy < 15) { // Hanya update jika akurasi bagus
+                        if (lastLat !== userLat || lastLon !== userLon) {
+                            set(ref(database, 'location/user'), {
+                                latitude: userLat,
+                                longitude: userLon
+                            });
 
-                        document.getElementById("latitude").innerText = userLat.toFixed(6);
-                        document.getElementById("longitude").innerText = userLon.toFixed(6);
+                            document.getElementById("latitude").innerText = userLat.toFixed(6);
+                            document.getElementById("longitude").innerText = userLon.toFixed(6);
+
+                            lastLat = userLat;
+                            lastLon = userLon;
+                        }
                     }
                 }, error => {
                     console.error("Gagal mendapatkan lokasi: " + error.message);
@@ -129,40 +136,42 @@
         }
 
         function updateRadar() {
-            onValue(ref(database, 'location/user'), (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    const targetLat = data.latitude;
-                    const targetLon = data.longitude;
+            setInterval(() => {
+                onValue(ref(database, 'location/user'), (snapshot) => {
+                    const data = snapshot.val();
+                    if (data) {
+                        const targetLat = data.latitude;
+                        const targetLon = data.longitude;
 
-                    navigator.geolocation.getCurrentPosition(position => {
-                        const userLat = position.coords.latitude;
-                        const userLon = position.coords.longitude;
+                        navigator.geolocation.getCurrentPosition(position => {
+                            const userLat = position.coords.latitude;
+                            const userLon = position.coords.longitude;
 
-                        const dot = document.getElementById("userDot");
-                        const radarSize = 300;
-                        const radius = radarSize / 2;
-                        const centerX = radius;
-                        const centerY = radius;
+                            const distance = getDistance(userLat, userLon, targetLat, targetLon);
+                            document.getElementById("distance").innerText = distance.toFixed(2);
 
-                        const angle = Math.atan2(targetLat - userLat, targetLon - userLon);
-                        const distance = getDistance(userLat, userLon, targetLat, targetLon);
-                        const maxDistance = 200; // Radar lebih sensitif, batas maksimum kecil
+                            const dot = document.getElementById("userDot");
+                            const radarSize = 300;
+                            const radius = radarSize / 2;
+                            const centerX = radius;
+                            const centerY = radius;
 
-                        document.getElementById("distance").innerText = distance.toFixed(2);
+                            const angle = Math.atan2(targetLat - userLat, targetLon - userLon);
+                            const maxDistance = 200;
 
-                        const scaleFactor = Math.min(1, distance / maxDistance);
-                        const x = centerX + Math.cos(angle) * (radius * scaleFactor);
-                        const y = centerY - Math.sin(angle) * (radius * scaleFactor);
+                            const scaleFactor = Math.min(1, distance / maxDistance);
+                            const x = centerX + Math.cos(angle) * (radius * scaleFactor);
+                            const y = centerY - Math.sin(angle) * (radius * scaleFactor);
 
-                        dot.style.transform = `translate(${x - radius}px, ${y - radius}px)`;
-                    }, error => {
-                        console.error("Gagal mendapatkan lokasi: " + error.message);
-                    }, {
-                        enableHighAccuracy: true
-                    });
-                }
-            });
+                            dot.style.transform = `translate(${x - radius}px, ${y - radius}px)`;
+                        }, error => {
+                            console.error("Gagal mendapatkan lokasi: " + error.message);
+                        }, {
+                            enableHighAccuracy: true
+                        });
+                    }
+                });
+            }, 2000);
         }
 
         updateMyLocation();
