@@ -21,24 +21,24 @@
         .radar {
             width: 300px;
             height: 300px;
-            background: radial-gradient(circle, rgba(255,255,0,0.3) 30%, transparent 70%);
+            background: radial-gradient(circle, rgba(255, 0, 0, 0.3) 30%, transparent 70%);
             border-radius: 50%;
             position: relative;
             margin: 10px auto;
-            border: 2px solid yellow;
+            border: 2px solid red;
         }
 
         .dot {
             width: 12px;
             height: 12px;
-            background: yellow;
+            background: red;
             border-radius: 50%;
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             transition: transform 0.1s linear;
-            box-shadow: 0 0 10px yellow;
+            box-shadow: 0 0 10px red;
             animation: blink 1s infinite alternate;
         }
 
@@ -90,19 +90,22 @@
                 navigator.geolocation.watchPosition(position => {
                     const userLat = position.coords.latitude;
                     const userLon = position.coords.longitude;
+                    const accuracy = position.coords.accuracy; // Tingkat akurasi dalam meter
 
-                    set(ref(database, 'location/user'), {
-                        latitude: userLat,
-                        longitude: userLon
-                    });
+                    if (accuracy < 20) { // Hanya update jika akurasi bagus (<20m)
+                        set(ref(database, 'location/user'), {
+                            latitude: userLat,
+                            longitude: userLon
+                        });
 
-                    document.getElementById("latitude").innerText = userLat.toFixed(6);
-                    document.getElementById("longitude").innerText = userLon.toFixed(6);
+                        document.getElementById("latitude").innerText = userLat.toFixed(6);
+                        document.getElementById("longitude").innerText = userLon.toFixed(6);
+                    }
                 }, error => {
                     console.error("Gagal mendapatkan lokasi: " + error.message);
                 }, {
                     enableHighAccuracy: true,
-                    timeout: 5000,
+                    timeout: 3000,
                     maximumAge: 0
                 });
             } else {
@@ -144,7 +147,7 @@
 
                         const angle = Math.atan2(targetLat - userLat, targetLon - userLon);
                         const distance = getDistance(userLat, userLon, targetLat, targetLon);
-                        const maxDistance = 500; // Maksimum jarak agar tetap dalam radar
+                        const maxDistance = 200; // Radar lebih sensitif, batas maksimum kecil
 
                         document.getElementById("distance").innerText = distance.toFixed(2);
 
@@ -153,6 +156,10 @@
                         const y = centerY - Math.sin(angle) * (radius * scaleFactor);
 
                         dot.style.transform = `translate(${x - radius}px, ${y - radius}px)`;
+                    }, error => {
+                        console.error("Gagal mendapatkan lokasi: " + error.message);
+                    }, {
+                        enableHighAccuracy: true
                     });
                 }
             });
