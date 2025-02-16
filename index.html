@@ -31,7 +31,7 @@
         .dot {
             width: 12px;
             height: 12px;
-            background: purple; /* Titik ungu menyala */
+            background: white; /* Titik putih */
             border-radius: 50%;
             position: absolute;
             top: 50%;
@@ -84,25 +84,27 @@
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
 
+        let myLat = 0, myLon = 0;
+        let distanceHistory = []; // Menyimpan 5 data terakhir
+
         function updateMyLocation() {
             if (navigator.geolocation) {
                 navigator.geolocation.watchPosition(position => {
-                    const userLat = position.coords.latitude;
-                    const userLon = position.coords.longitude;
+                    myLat = position.coords.latitude;
+                    myLon = position.coords.longitude;
 
-                    // Upload lokasi HP pengguna ke Firebase
                     set(ref(database, 'location/user'), {
-                        latitude: userLat,
-                        longitude: userLon
+                        latitude: myLat,
+                        longitude: myLon
                     });
 
-                    document.getElementById("lat").innerText = userLat.toFixed(6);
-                    document.getElementById("lon").innerText = userLon.toFixed(6);
+                    document.getElementById("lat").innerText = myLat.toFixed(6);
+                    document.getElementById("lon").innerText = myLon.toFixed(6);
 
                 }, error => {
                     console.error("Gagal mendapatkan lokasi: " + error.message);
                 }, {
-                    enableHighAccuracy: true, // AKURASI TINGGI
+                    enableHighAccuracy: true,
                     timeout: 5000,
                     maximumAge: 0
                 });
@@ -112,7 +114,7 @@
         }
 
         function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; // Radius bumi dalam meter
+            const R = 6371e3; 
             const φ1 = lat1 * Math.PI / 180;
             const φ2 = lat2 * Math.PI / 180;
             const Δφ = (lat2 - lat1) * Math.PI / 180;
@@ -123,7 +125,16 @@
                       Math.sin(Δλ/2) * Math.sin(Δλ/2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 
-            return (R * c).toFixed(2); // Jarak dalam meter
+            return (R * c);
+        }
+
+        function getAverageDistance(newDistance) {
+            distanceHistory.push(newDistance);
+            if (distanceHistory.length > 5) {
+                distanceHistory.shift(); // Hanya simpan 5 data terakhir
+            }
+            const avgDistance = distanceHistory.reduce((a, b) => a + b, 0) / distanceHistory.length;
+            return Math.round(avgDistance); // Bulatkan ke meter terdekat
         }
 
         function updateRadar() {
@@ -137,8 +148,10 @@
                         const userLat = position.coords.latitude;
                         const userLon = position.coords.longitude;
 
-                        const distance = getDistance(userLat, userLon, targetLat, targetLon);
-                        document.getElementById("distance").innerText = distance;
+                        let rawDistance = getDistance(userLat, userLon, targetLat, targetLon);
+                        let stableDistance = getAverageDistance(rawDistance);
+
+                        document.getElementById("distance").innerText = stableDistance;
 
                         const dot = document.getElementById("userDot");
                         const radarSize = 300;
@@ -149,7 +162,7 @@
                         const angle = Math.atan2(targetLat - userLat, targetLon - userLon);
                         const maxDistance = 5000;
 
-                        const scaleFactor = Math.min(1, distance / maxDistance);
+                        const scaleFactor = Math.min(1, stableDistance / maxDistance);
                         const x = centerX + Math.cos(angle) * (radius * scaleFactor);
                         const y = centerY - Math.sin(angle) * (radius * scaleFactor);
 
