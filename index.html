@@ -31,7 +31,7 @@
         .dot {
             width: 12px;
             height: 12px;
-            background: white; /* Titik putih */
+            background: black; /* Titik hitam */
             border-radius: 50%;
             position: absolute;
             top: 50%;
@@ -84,37 +84,12 @@
         const app = initializeApp(firebaseConfig);
         const database = getDatabase(app);
 
-        let myLat = 0, myLon = 0;
-        let distanceHistory = []; // Menyimpan 5 data terakhir
-
-        function updateMyLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(position => {
-                    myLat = position.coords.latitude;
-                    myLon = position.coords.longitude;
-
-                    set(ref(database, 'location/user'), {
-                        latitude: myLat,
-                        longitude: myLon
-                    });
-
-                    document.getElementById("lat").innerText = myLat.toFixed(6);
-                    document.getElementById("lon").innerText = myLon.toFixed(6);
-
-                }, error => {
-                    console.error("Gagal mendapatkan lokasi: " + error.message);
-                }, {
-                    enableHighAccuracy: true,
-                    timeout: 5000,
-                    maximumAge: 0
-                });
-            } else {
-                alert("Geolokasi tidak didukung di browser ini.");
-            }
-        }
+        let prevLat = null;
+        let prevLon = null;
+        let distances = [];
 
         function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; 
+            const R = 6371e3; // Radius bumi dalam meter
             const φ1 = lat1 * Math.PI / 180;
             const φ2 = lat2 * Math.PI / 180;
             const Δφ = (lat2 - lat1) * Math.PI / 180;
@@ -125,16 +100,43 @@
                       Math.sin(Δλ/2) * Math.sin(Δλ/2);
             const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
 
-            return (R * c);
+            return R * c; // Jarak dalam meter
         }
 
-        function getAverageDistance(newDistance) {
-            distanceHistory.push(newDistance);
-            if (distanceHistory.length > 5) {
-                distanceHistory.shift(); // Hanya simpan 5 data terakhir
+        function updateMyLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.watchPosition(position => {
+                    const userLat = position.coords.latitude;
+                    const userLon = position.coords.longitude;
+
+                    // Hanya perbarui jika lokasi berubah signifikan (lebih dari 2 meter)
+                    if (prevLat !== null && prevLon !== null) {
+                        const movedDistance = getDistance(prevLat, prevLon, userLat, userLon);
+                        if (movedDistance < 2) return; // Abaikan perubahan kecil
+                    }
+
+                    prevLat = userLat;
+                    prevLon = userLon;
+
+                    // Upload lokasi HP pengguna ke Firebase
+                    set(ref(database, 'location/user'), {
+                        latitude: userLat,
+                        longitude: userLon
+                    });
+
+                    document.getElementById("lat").innerText = userLat.toFixed(6);
+                    document.getElementById("lon").innerText = userLon.toFixed(6);
+
+                }, error => {
+                    console.error("Gagal mendapatkan lokasi: " + error.message);
+                }, {
+                    enableHighAccuracy: true, 
+                    timeout: 5000,
+                    maximumAge: 0
+                });
+            } else {
+                alert("Geolokasi tidak didukung di browser ini.");
             }
-            const avgDistance = distanceHistory.reduce((a, b) => a + b, 0) / distanceHistory.length;
-            return Math.round(avgDistance); // Bulatkan ke meter terdekat
         }
 
         function updateRadar() {
@@ -148,10 +150,14 @@
                         const userLat = position.coords.latitude;
                         const userLon = position.coords.longitude;
 
-                        let rawDistance = getDistance(userLat, userLon, targetLat, targetLon);
-                        let stableDistance = getAverageDistance(rawDistance);
+                        let distance = getDistance(userLat, userLon, targetLat, targetLon);
 
-                        document.getElementById("distance").innerText = stableDistance;
+                        // Simpan jarak untuk menghitung rata-rata
+                        distances.push(distance);
+                        if (distances.length > 5) distances.shift(); // Hanya simpan 5 data terakhir
+                        distance = distances.reduce((a, b) => a + b, 0) / distances.length; // Rata-rata
+
+                        document.getElementById("distance").innerText = Math.round(distance);
 
                         const dot = document.getElementById("userDot");
                         const radarSize = 300;
@@ -162,7 +168,7 @@
                         const angle = Math.atan2(targetLat - userLat, targetLon - userLon);
                         const maxDistance = 5000;
 
-                        const scaleFactor = Math.min(1, stableDistance / maxDistance);
+                        const scaleFactor = Math.min(1, distance / maxDistance);
                         const x = centerX + Math.cos(angle) * (radius * scaleFactor);
                         const y = centerY - Math.sin(angle) * (radius * scaleFactor);
 
