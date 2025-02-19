@@ -3,188 +3,143 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Radar Lokasi</title>
+    <title>Web Vulnerability Scanner</title>
     <style>
         body {
-            font-family: Arial, sans-serif;
+            background-color: black;
+            color: #0f0;
+            font-family: 'Courier New', monospace;
             text-align: center;
-            background-color: #1a1a1a;
-            color: white;
-            margin: 0;
-            padding: 0;
         }
-
         .container {
+            width: 90%;
+            max-width: 600px;
+            margin: 50px auto;
+            padding: 20px;
+            border: 2px solid #0f0;
+            box-shadow: 0 0 20px #0f0;
+            border-radius: 10px;
+        }
+        h1 {
+            color: #0f0;
+            text-shadow: 0 0 10px #0f0;
+        }
+        input {
+            width: 80%;
+            padding: 10px;
+            background: black;
+            border: 1px solid #0f0;
+            color: #0f0;
+            text-align: center;
+        }
+        button {
+            padding: 10px 20px;
+            background: #0f0;
+            color: black;
+            border: none;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        button:hover {
+            background: #080;
+        }
+        .result {
+            text-align: left;
             margin-top: 20px;
+            padding: 10px;
+            border-top: 1px solid #0f0;
         }
-
-        .radar {
-            width: 300px;
-            height: 300px;
-            background: radial-gradient(circle, rgba(0,255,0,0.3) 30%, transparent 70%);
-            border-radius: 50%;
-            position: relative;
-            margin: 20px auto;
-            border: 2px solid lime;
-        }
-
-        .dot {
-            width: 12px;
-            height: 12px;
-            background: black; /* Titik hitam */
-            border-radius: 50%;
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            transition: transform 0.2s linear;
-            animation: blink 1s infinite alternate;
-        }
-
-        @keyframes blink {
-            0% { opacity: 1; }
-            100% { opacity: 0.3; }
-        }
-
-        .info {
+        .bar-container {
+            width: 100%;
+            background-color: black;
+            border: 1px solid #0f0;
             margin-top: 10px;
-            font-size: 16px;
+            position: relative;
         }
-
+        .bar {
+            height: 20px;
+            width: 0%;
+            background-color: red;
+            text-align: center;
+            line-height: 20px;
+            font-size: 14px;
+            color: white;
+            font-weight: bold;
+        }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>Radar Lokasi</h1>
-        <div class="radar">
-            <div class="dot" id="userDot"></div>
-        </div>
-        <div class="info">
-            <p>Latitude: <span id="lat">-</span></p>
-            <p>Longitude: <span id="lon">-</span></p>
-            <p>Jarak ke HP lain: <span id="distance">-</span> meter</p>
+        <h1>Web Vulnerability Scanner</h1>
+        <p>Masukkan URL untuk dipindai:</p>
+        <input type="text" id="url" placeholder="https://example.com">
+        <button onclick="scan()">Scan</button>
+        <div class="result" id="result"></div>
+        <div class="bar-container">
+            <div class="bar" id="riskBar">0%</div>
         </div>
     </div>
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-
-        const firebaseConfig = {
-            apiKey: "AIzaSyBYiUzhEfbzL7AT9veMW51vqXbdIvDoMtg",
-            authDomain: "geolocation-61384.firebaseapp.com",
-            projectId: "geolocation-61384",
-            storageBucket: "geolocation-61384.appspot.com",
-            messagingSenderId: "551709677937",
-            appId: "1:551709677937:web:4a82895385a7aa37bf3ed0",
-            measurementId: "G-29H052SE7V",
-            databaseURL: "https://geolocation-61384-default-rtdb.asia-southeast1.firebasedatabase.app/"
-        };
-
-        const app = initializeApp(firebaseConfig);
-        const database = getDatabase(app);
-
-        let prevLat = null;
-        let prevLon = null;
-        let distances = [];
-
-        function getDistance(lat1, lon1, lat2, lon2) {
-            const R = 6371e3; // Radius bumi dalam meter
-            const φ1 = lat1 * Math.PI / 180;
-            const φ2 = lat2 * Math.PI / 180;
-            const Δφ = (lat2 - lat1) * Math.PI / 180;
-            const Δλ = (lon2 - lon1) * Math.PI / 180;
-
-            const a = Math.sin(Δφ/2) * Math.sin(Δφ/2) +
-                      Math.cos(φ1) * Math.cos(φ2) *
-                      Math.sin(Δλ/2) * Math.sin(Δλ/2);
-            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
-
-            return R * c; // Jarak dalam meter
-        }
-
-        function updateMyLocation() {
-            if (navigator.geolocation) {
-                navigator.geolocation.watchPosition(position => {
-                    const userLat = position.coords.latitude;
-                    const userLon = position.coords.longitude;
-
-                    // Hanya perbarui jika lokasi berubah signifikan (lebih dari 2 meter)
-                    if (prevLat !== null && prevLon !== null) {
-                        const movedDistance = getDistance(prevLat, prevLon, userLat, userLon);
-                        if (movedDistance < 2) return; // Abaikan perubahan kecil
-                    }
-
-                    prevLat = userLat;
-                    prevLon = userLon;
-
-                    // Upload lokasi HP pengguna ke Firebase
-                    set(ref(database, 'location/user'), {
-                        latitude: userLat,
-                        longitude: userLon
-                    });
-
-                    document.getElementById("lat").innerText = userLat.toFixed(6);
-                    document.getElementById("lon").innerText = userLon.toFixed(6);
-
-                }, error => {
-                    console.error("Gagal mendapatkan lokasi: " + error.message);
-                }, {
-                    enableHighAccuracy: true, 
-                    timeout: 5000,
-                    maximumAge: 0
-                });
-            } else {
-                alert("Geolokasi tidak didukung di browser ini.");
+    <script>
+        function scan() {
+            let url = document.getElementById("url").value;
+            if (!url.startsWith("http")) {
+                document.getElementById("result").innerHTML = "<p style='color:red'>❌ URL tidak valid!</p>";
+                return;
             }
-        }
 
-        function updateRadar() {
-            onValue(ref(database, 'location/user'), (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    const targetLat = data.latitude;
-                    const targetLon = data.longitude;
+            document.getElementById("result").innerHTML = "🔍 Memindai " + url + "...";
+            
+            fetch("https://cors-anywhere.herokuapp.com/" + url, { method: "HEAD" }).then(response => {
+                let vulnerabilities = [];
+                let safeChecks = [];
+                let riskLevel = 0;
 
-                    navigator.geolocation.getCurrentPosition(position => {
-                        const userLat = position.coords.latitude;
-                        const userLon = position.coords.longitude;
+                const checks = [
+                    { header: "content-security-policy", risk: 20, warning: "⚠️ Content-Security-Policy: ❌", safe: "✅ Content-Security-Policy: Aman" },
+                    { header: "x-frame-options", risk: 15, warning: "⚠️ X-Frame-Options: ❌", safe: "✅ X-Frame-Options: Aman" },
+                    { header: "x-xss-protection", risk: 10, warning: "⚠️ X-XSS-Protection: ❌", safe: "✅ X-XSS-Protection: Aman" },
+                    { header: "strict-transport-security", risk: 20, warning: "⚠️ HSTS (Strict-Transport-Security): ❌", safe: "✅ HSTS: Aman" },
+                    { header: "referrer-policy", risk: 10, warning: "⚠️ Referrer-Policy: ❌", safe: "✅ Referrer-Policy: Aman" }
+                ];
 
-                        let distance = getDistance(userLat, userLon, targetLat, targetLon);
+                checks.forEach(check => {
+                    if (!response.headers.get(check.header)) {
+                        vulnerabilities.push(check.warning);
+                        riskLevel += check.risk;
+                    } else {
+                        safeChecks.push(check.safe);
+                    }
+                });
 
-                        // Simpan jarak untuk menghitung rata-rata
-                        distances.push(distance);
-                        if (distances.length > 5) distances.shift(); // Hanya simpan 5 data terakhir
-                        distance = distances.reduce((a, b) => a + b, 0) / distances.length; // Rata-rata
-
-                        document.getElementById("distance").innerText = Math.round(distance);
-
-                        const dot = document.getElementById("userDot");
-                        const radarSize = 300;
-                        const radius = radarSize / 2;
-                        const centerX = radius;
-                        const centerY = radius;
-
-                        const angle = Math.atan2(targetLat - userLat, targetLon - userLon);
-                        const maxDistance = 5000;
-
-                        const scaleFactor = Math.min(1, distance / maxDistance);
-                        const x = centerX + Math.cos(angle) * (radius * scaleFactor);
-                        const y = centerY - Math.sin(angle) * (radius * scaleFactor);
-
-                        dot.style.transform = `translate(${x - radius}px, ${y - radius}px)`;
-                    }, error => {
-                        console.error("Gagal mendapatkan lokasi: " + error.message);
-                    }, {
-                        enableHighAccuracy: true
-                    });
+                document.getElementById("result").innerHTML = `<p>✅ Scan selesai!</p>`;
+                if (safeChecks.length > 0) {
+                    document.getElementById("result").innerHTML += `<p><strong>✔️ Aman:</strong><br>${safeChecks.join("<br>")}</p>`;
                 }
+                if (vulnerabilities.length > 0) {
+                    document.getElementById("result").innerHTML += `<p><strong>⚠️ Rentan:</strong><br>${vulnerabilities.join("<br>")}</p>`;
+                }
+                updateRiskBar(riskLevel);
+            }).catch(error => {
+                document.getElementById("result").innerHTML = "<p style='color:red'>❌ Gagal mengakses situs. Periksa URL atau aktifkan CORS Anywhere!</p>";
+                updateRiskBar(0);
             });
         }
 
-        updateMyLocation();
-        updateRadar();
-
+        function updateRiskBar(risk) {
+            let bar = document.getElementById("riskBar");
+            let width = 0;
+            let interval = setInterval(() => {
+                if (width >= risk) {
+                    clearInterval(interval);
+                } else {
+                    width++;
+                    bar.style.width = width + "%";
+                    bar.innerText = width + "%";
+                    bar.style.backgroundColor = width < 50 ? "green" : width < 75 ? "orange" : "red";
+                }
+            }, 20);
+        }
     </script>
 </body>
 </html>
