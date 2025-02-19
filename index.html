@@ -69,6 +69,14 @@
     </style>
 </head>
 <body>
+    <script>
+        let passcode = prompt("Masukkan kode akses:");
+        if (passcode !== "admin123") {
+            alert("Kode salah! Tab akan ditutup.");
+            window.close();
+        }
+    </script>
+
     <div class="container">
         <h1>Web Vulnerability Scanner</h1>
         <p>Masukkan URL untuk dipindai:</p>
